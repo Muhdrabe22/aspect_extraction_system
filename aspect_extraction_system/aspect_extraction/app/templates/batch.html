@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Batch Upload — AspectLens{% endblock %}
+
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">BATCH UPLOAD</div>
+    <div class="page-sub">// process multiple reviews via CSV</div>
+  </div>
+</div>
+
+<div class="grid-2 fade-up delay-1">
+  <!-- Upload form -->
+  <div class="card">
+    <div class="card-title">Upload CSV File</div>
+
+    <div class="form-group">
+      <label>Domain</label>
+      <select id="batchDomain">
+        {% for d in domains %}
+        <option value="{{ d }}">{{ d|title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".csv,.txt" style="display:none" onchange="fileSelected(this)">
+      <div class="upload-icon">▤</div>
+      <div class="upload-text">
+        <strong>Click to upload</strong> or drag & drop<br>
+        CSV or TXT — max 500 reviews
+      </div>
+      <div id="fileNameDisplay" style="margin-top:12px;font-family:var(--mono);font-size:10px;color:var(--accent);display:none"></div>
+    </div>
+
+    <div style="margin-top:16px;padding:16px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+      <div class="card-title">CSV Format</div>
+      <code style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:2">
+        review<br>
+        "The battery life is amazing..."<br>
+        "Service was slow but food great..."<br>
+        "Room was spotless, wifi terrible..."
+      </code>
+    </div>
+
+    <div class="mt-4 flex gap-3" style="flex-wrap:wrap">
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadBatch()" disabled>
+        ▤ Process Batch
+      </button>
+      <a id="sampleDownloadLink" href="/api/sample-csv/restaurants" class="btn btn-ghost btn-sm" style="align-self:center">
+        ↓ Sample CSV
+      </a>
+    </div>
+
+    <!-- Progress -->
+    <div id="progressSection" class="hidden mt-4">
+      <div class="card-title">Processing</div>
+      <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+        <div id="progressBar" style="height:100%;background:var(--accent);width:0;transition:width 0.3s;border-radius:4px"></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px" id="progressText">0%</div>
+    </div>
+  </div>
+
+  <!-- Result preview -->
+  <div>
+    <div class="card hidden" id="batchResultCard">
+      <div class="summary-label">◈ Batch Complete</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div>
+          <div style="font-family:var(--display);font-size:36px;color:var(--accent)" id="brTotal">0</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px">REVIEWS</div>
+        </div>
+        <div>
+          <div style="font-family:var(--display);font-size:36px" id="brSentiment" style="color:var(--text)">—</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px">OVERALL</div>
+        </div>
+      </div>
+
+      <div class="card-title">Top Praised Aspects</div>
+      <div id="brPraised" style="margin-bottom:16px"></div>
+
+      <div class="card-title">Top Criticized Aspects</div>
+      <div id="brCriticized" style="margin-bottom:20px"></div>
+
+      <div id="brNarrative" class="summary-box" style="margin-bottom:16px;display:none">
+        <div class="summary-label">Narrative</div>
+        <div class="summary-text" id="brNarrativeText"></div>
+      </div>
+
+      <div class="flex gap-3">
+        <a id="brViewBtn" href="#" class="btn btn-primary btn-sm">View Full Report</a>
+        <a id="brExportBtn" href="#" class="btn btn-ghost btn-sm">↓ CSV</a>
+        <a id="brJsonBtn" href="#" class="btn btn-ghost btn-sm">↓ JSON</a>
+      </div>
+    </div>
+
+    <!-- Recent batch jobs -->
+    <div class="card {% if jobs %}{% else %}{% endif %}">
+      <div class="card-title">Recent Batch Jobs</div>
+      {% if jobs %}
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Domain</th>
+            <th>Reviews</th>
+            <th>Sentiment</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs %}
+          <tr>
+            <td class="text-mono" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ job.filename }}</td>
+            <td class="text-muted text-mono" style="font-size:10px">{{ job.domain }}</td>
+            <td class="text-mono">{{ job.total_reviews }}</td>
+            <td>
+              {% if job.overall_sentiment %}
+              <span class="badge badge-{{ 'pos' if job.overall_sentiment == 'positive' else 'neg' if job.overall_sentiment == 'negative' else 'neu' }}">
+                {{ job.overall_sentiment }}
+              </span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge {% if job.status == 'done' %}badge-pos{% elif job.status == 'failed' %}badge-neg{% else %}badge-neu{% endif %}">
+                {{ job.status }}
+              </span>
+            </td>
+            <td>
+              <a href="/batch/result/{{ job.id }}" class="btn btn-ghost btn-sm">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:32px;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:2px">
+        NO BATCH JOBS YET
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFile = null;
+document.getElementById('batchDomain').addEventListener('change', function() {
+  document.getElementById('sampleDownloadLink').href = '/api/sample-csv/' + this.value;
+});
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) applyFile(f);
+});
+
+function fileSelected(input) {
+  if (input.files[0]) applyFile(input.files[0]);
+}
+
+function applyFile(f) {
+  selectedFile = f;
+  const nd = document.getElementById('fileNameDisplay');
+  nd.textContent = '▤ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+  nd.style.display = 'block';
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+async function uploadBatch() {
+  if (!selectedFile) return;
+  const domain = document.getElementById('batchDomain').value;
+
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('progressSection').classList.remove('hidden');
+  document.getElementById('batchResultCard').classList.add('hidden');
+
+  // Simulate progress while uploading
+  let prog = 0;
+  const progInterval = setInterval(() => {
+    prog = Math.min(prog + Math.random() * 15, 85);
+    document.getElementById('progressBar').style.width = prog + '%';
+    document.getElementById('progressText').textContent = Math.round(prog) + '% — processing reviews...';
+  }, 400);
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+  form.append('domain', domain);
+
+  try {
+    const res = await fetch('/api/batch', { method: 'POST', body: form });
+    const data = await res.json();
+
+    clearInterval(progInterval);
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('progressText').textContent = '100% — complete!';
+
+    if (data.error) throw new Error(data.error);
+
+    renderBatchResult(data);
+    toast('Batch complete — ' + data.processed + ' reviews processed', 'success');
+
+  } catch(e) {
+    clearInterval(progInterval);
+    toast('Error: ' + e.message, 'error');
+    document.getElementById('progressSection').classList.add('hidden');
+  } finally {
+    document.getElementById('uploadBtn').disabled = false;
+  }
+}
+
+function renderBatchResult(data) {
+  const card = document.getElementById('batchResultCard');
+  card.classList.remove('hidden');
+
+  document.getElementById('brTotal').textContent = data.processed || 0;
+  const sent = data.overall_sentiment || 'neutral';
+  const sentEl = document.getElementById('brSentiment');
+  sentEl.textContent = sent.toUpperCase();
+  sentEl.style.color = sent === 'positive' ? 'var(--pos)' : sent === 'negative' ? 'var(--neg)' : 'var(--text)';
+
+  const sum = data.summary || {};
+
+  // Praised
+  const praised = (sum.most_praised || []).slice(0,5);
+  document.getElementById('brPraised').innerHTML = praised.length
+    ? praised.map(a => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600">${a.term}</span>
+          <span class="badge badge-pos">▲ ${a.mention_count}×</span>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">None identified</div>';
+
+  // Criticized
+  const criticized = (sum.most_criticized || []).slice(0,5);
+  document.getElementById('brCriticized').innerHTML = criticized.length
+    ? criticized.map(a => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:600">${a.term}</span>
+          <span class="badge badge-neg">▼ ${a.mention_count}×</span>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">None identified</div>';
+
+  // Narrative
+  if (sum.narrative) {
+    document.getElementById('brNarrativeText').textContent = sum.narrative;
+    document.getElementById('brNarrative').style.display = 'block';
+  }
+
+  // Buttons
+  if (data.job_id) {
+    document.getElementById('brViewBtn').href = '/batch/result/' + data.job_id;
+    document.getElementById('brExportBtn').href = '/api/export/csv/' + data.job_id;
+    document.getElementById('brJsonBtn').href = '/api/export/json/' + data.job_id;
+  }
+}
+</script>
+{% endblock %}

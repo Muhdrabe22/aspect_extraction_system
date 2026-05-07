@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Batch Report #{{ job.id }} — AspectLens{% endblock %}
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">BATCH <span style="color:var(--accent)">#{{ job.id }}</span></div>
+    <div class="page-sub">// {{ job.filename }} · {{ job.domain }} · {{ job.created_at.strftime('%B %d, %Y') }}</div>
+  </div>
+  <div class="flex gap-3">
+    <a href="/api/export/csv/{{ job.id }}" class="btn btn-ghost btn-sm">↓ CSV</a>
+    <a href="/api/export/json/{{ job.id }}" class="btn btn-ghost btn-sm">↓ JSON</a>
+    <a href="/api/export/summary/{{ job.id }}" class="btn btn-ghost btn-sm">↓ Summary</a>
+    <a href="/batch" class="btn btn-ghost btn-sm">← Batch Jobs</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row fade-up delay-1">
+  <div class="stat-tile" style="--accent-color:var(--accent)">
+    <div class="stat-num">{{ job.total_reviews }}</div>
+    <div class="stat-label">Total Reviews</div>
+  </div>
+  <div class="stat-tile" style="--accent-color:var(--pos)">
+    <div class="stat-num">{{ (job.positive_ratio * 100)|round(0)|int }}%</div>
+    <div class="stat-label">Positive Rate</div>
+  </div>
+  <div class="stat-tile" style="--accent-color: {{ 'var(--pos)' if job.overall_sentiment == 'positive' else 'var(--neg)' if job.overall_sentiment == 'negative' else 'var(--neu)' }}">
+    <div class="stat-num" style="font-size:28px;margin-top:4px">{{ job.overall_sentiment|upper if job.overall_sentiment else '—' }}</div>
+    <div class="stat-label">Overall Sentiment</div>
+  </div>
+  <div class="stat-tile" style="--accent-color:var(--accent2)">
+    <div class="stat-num">{{ summary.get('unique_aspects', 0) }}</div>
+    <div class="stat-label">Unique Aspects</div>
+  </div>
+</div>
+
+<!-- Narrative summary -->
+{% if summary.get('narrative') %}
+<div class="summary-box fade-up delay-1">
+  <div class="summary-label">◈ Summary Narrative</div>
+  <div class="summary-text">{{ summary.narrative }}</div>
+</div>
+{% endif %}
+
+<div class="grid-2 fade-up delay-2">
+  <!-- Top aspects -->
+  <div class="card">
+    <div class="card-title">Top Aspects by Mentions</div>
+    {% set top = summary.get('top_aspects', []) %}
+    {% if top %}
+    {% for asp in top[:10] %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div style="font-weight:600">{{ asp.term }}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">{{ asp.category }}</div>
+      </div>
+      <span class="badge badge-{{ 'pos' if asp.dominant_polarity=='positive' else 'neg' if asp.dominant_polarity=='negative' else 'neu' }}">
+        {{ asp.dominant_polarity }}
+      </span>
+      <div style="text-align:right;min-width:60px">
+        <div style="font-family:var(--display);font-size:20px;color:var(--text)">{{ asp.mention_count }}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">mentions</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:var(--muted);text-align:center;padding:24px;font-family:var(--mono);font-size:11px">NO DATA</div>
+    {% endif %}
+  </div>
+
+  <!-- Charts + category breakdown -->
+  <div>
+    <div class="card mb-4">
+      <div class="card-title">Sentiment Overview</div>
+      <div class="chart-wrap"><canvas id="sentChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Category Breakdown</div>
+      {% set cats = summary.get('category_breakdown', {}) %}
+      {% if cats %}
+      {% for cat, stats in cats.items() %}
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;text-transform:capitalize">{{ cat }}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">{{ stats.get('total',0) }} mentions</span>
+        </div>
+        {% set total = stats.get('total', 1) %}
+        {% set pos_pct = (stats.get('positive',0) / total * 100)|round(0)|int %}
+        {% set neg_pct = (stats.get('negative',0) / total * 100)|round(0)|int %}
+        <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;display:flex">
+          <div style="width:{{ pos_pct }}%;background:var(--pos);transition:width 0.4s"></div>
+          <div style="width:{{ neg_pct }}%;background:var(--neg);transition:width 0.4s"></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:3px">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--pos)">+{{ stats.get('positive',0) }}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--neg)">-{{ stats.get('negative',0) }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="color:var(--muted);font-family:var(--mono);font-size:11px;text-align:center;padding:20px">NO DATA</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Individual reviews table -->
+<div class="card mt-4 fade-up delay-3">
+  <div class="flex-between mb-4">
+    <div class="card-title" style="margin:0">Individual Reviews</div>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">{{ job.reviews|length }} shown</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Review</th><th>Aspects</th><th>Sentiment</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in job.reviews[:50] %}
+      {% set polarities = r.aspects|map(attribute='polarity')|list %}
+      {% set pos = polarities|select('equalto','positive')|list|length %}
+      {% set neg = polarities|select('equalto','negative')|list|length %}
+      <tr>
+        <td class="text-mono text-muted" style="font-size:10px">#{{ r.id }}</td>
+        <td style="max-width:320px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.text[:100] }}{% if r.text|length > 100 %}…{% endif %}</div></td>
+        <td class="text-mono">{{ r.aspects|length }}</td>
+        <td>
+          {% if pos > neg %}<span class="badge badge-pos">▲ pos</span>
+          {% elif neg > pos %}<span class="badge badge-neg">▼ neg</span>
+          {% else %}<span class="badge badge-neu">◆ mix</span>{% endif %}
+        </td>
+        <td><a href="/result/{{ r.id }}" class="btn btn-ghost btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const polData = {{ summary.get('polarity_counts', {}) | tojson }};
+new Chart(document.getElementById('sentChart'), {
+  type: 'doughnut',
+  data: {
+    labels: Object.keys(polData),
+    datasets: [{
+      data: Object.values(polData),
+      backgroundColor: { positive:'#00e5a0', negative:'#ff5e5e', neutral:'#6b7280', conflict:'#f59e0b' },
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '60%',
+    plugins: {
+      legend: {
+        display: true, position: 'right',
+        labels: { color:'#8888a0', font:{family:'Space Mono',size:9}, padding:10, boxWidth:8 }
+      }
+    }
+  }
+});
+</script>
+{% endblock %}

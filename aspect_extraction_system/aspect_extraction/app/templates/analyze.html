@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Analyze Review — AspectLens{% endblock %}
+
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">ANALYZE</div>
+    <div class="page-sub">// single review aspect extraction</div>
+  </div>
+</div>
+
+<div class="grid-2 fade-up delay-1">
+  <!-- Input panel -->
+  <div>
+    <div class="card">
+      <div class="card-title">Review Input</div>
+      <div class="form-group">
+        <label>Domain</label>
+        <select id="domainSelect">
+          {% for d in domains %}
+          <option value="{{ d }}">{{ d|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Review Text</label>
+        <textarea id="reviewText" placeholder="Paste a product review here…&#10;&#10;e.g. The battery life is amazing but the screen is too dim for outdoor use. Price feels a bit high."></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()">
+          <span>◎</span> Analyze
+        </button>
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+      </div>
+
+      <!-- Sample reviews -->
+      <div style="margin-top:20px">
+        <div class="card-title">Quick Samples</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          {% set samples = [
+            ('electronics', 'The battery life is amazing and screen is beautiful, but build quality feels cheap and price is quite high.'),
+            ('restaurants', 'Food was absolutely delicious but service was incredibly slow. Ambiance is cozy though.'),
+            ('hotels', 'Room was spotless with a stunning view. Staff were very helpful. Wifi was terrible and parking a nightmare.'),
+          ] %}
+          {% for domain, text in samples %}
+          <button class="btn btn-ghost btn-sm" onclick="loadSample('{{ domain }}','{{ text }}')" style="text-align:left;justify-content:flex-start">
+            <span style="color:var(--accent);font-size:9px">{{ domain|upper }}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;color:var(--muted)">
+              {{ text[:55] }}…
+            </span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results panel -->
+  <div id="resultsPanel" class="hidden">
+
+    <!-- Summary -->
+    <div class="summary-box fade-up" id="summaryBox">
+      <div class="summary-label">◈ Analysis Summary</div>
+      <div class="summary-text" id="summaryText"></div>
+    </div>
+
+    <!-- Overall + stats -->
+    <div class="card mb-4 fade-up delay-1">
+      <div class="flex-between">
+        <div>
+          <div class="card-title">Overall Sentiment</div>
+          <div id="overallBadge"></div>
+        </div>
+        <div style="display:flex;gap:20px;text-align:center">
+          <div>
+            <div style="font-family:var(--display);font-size:28px;color:var(--pos)" id="statPos">0</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px">POSITIVE</div>
+          </div>
+          <div>
+            <div style="font-family:var(--display);font-size:28px;color:var(--neg)" id="statNeg">0</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px">NEGATIVE</div>
+          </div>
+          <div>
+            <div style="font-family:var(--display);font-size:28px;color:var(--neu)" id="statNeu">0</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px">NEUTRAL</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini chart -->
+      <div style="margin-top:16px;height:80px">
+        <canvas id="miniSentChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Aspect list -->
+    <div class="card fade-up delay-2">
+      <div class="flex-between mb-4">
+        <div class="card-title" style="margin:0">Extracted Aspects</div>
+        <span id="aspectCount" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+      </div>
+      <div id="aspectList"></div>
+    </div>
+
+    <!-- Key points -->
+    <div class="card mt-4 fade-up delay-3" id="keyPointsCard">
+      <div class="card-title">Key Points</div>
+      <div id="keyPoints"></div>
+    </div>
+
+    <div class="mt-4 flex gap-3">
+      <a id="viewFullBtn" href="#" class="btn btn-ghost">View Full Result →</a>
+      <button class="btn btn-ghost" onclick="clearAll()">New Analysis</button>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="card fade-up delay-1" style="display:flex;align-items:center;justify-content:center;min-height:280px">
+    <div style="text-align:center;color:var(--muted)">
+      <div style="font-size:48px;opacity:0.15;margin-bottom:16px;font-family:var(--display);letter-spacing:4px">NLP</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px">RESULTS APPEAR HERE</div>
+      <div style="margin-top:8px;font-size:12px">Enter a review and click Analyze</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let miniChart = null;
+
+function loadSample(domain, text) {
+  document.getElementById('domainSelect').value = domain;
+  document.getElementById('reviewText').value = text;
+}
+
+function clearAll() {
+  document.getElementById('reviewText').value = '';
+  document.getElementById('resultsPanel').classList.add('hidden');
+  document.getElementById('emptyState').style.display = 'flex';
+  if (miniChart) { miniChart.destroy(); miniChart = null; }
+}
+
+async function runAnalysis() {
+  const text = document.getElementById('reviewText').value.trim();
+  const domain = document.getElementById('domainSelect').value;
+
+  if (!text) { toast('Please enter a review', 'error'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  showLoading('Extracting aspects...');
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, domain, use_llm: false})
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderResults(data);
+    toast('Analysis complete', 'success');
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('emptyState').style.display = 'none';
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.remove('hidden');
+
+  // Summary
+  const sum = data.summary || {};
+  document.getElementById('summaryText').textContent =
+    sum.final_summary || sum.short_summary || 'Analysis complete.';
+
+  // Overall badge
+  const overall = data.overall_sentiment || 'neutral';
+  const badgeMap = { positive:'pos', negative:'neg', neutral:'neu', mixed:'conf', conflict:'conf' };
+  const emojiMap = { positive:'▲', negative:'▼', neutral:'◆', mixed:'⚡', conflict:'⚡' };
+  document.getElementById('overallBadge').innerHTML =
+    `<span class="badge badge-${badgeMap[overall]||'neu'}" style="font-size:12px;padding:6px 16px">
+      ${emojiMap[overall]||'◆'} ${overall.toUpperCase()}
+    </span>`;
+
+  // Stats
+  const stats = data.stats || {};
+  document.getElementById('statPos').textContent = stats.positive || 0;
+  document.getElementById('statNeg').textContent = stats.negative || 0;
+  document.getElementById('statNeu').textContent = stats.neutral || 0;
+
+  // Mini chart
+  if (miniChart) miniChart.destroy();
+  miniChart = new Chart(document.getElementById('miniSentChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Positive', 'Negative', 'Neutral', 'Conflict'],
+      datasets: [{
+        data: [stats.positive||0, stats.negative||0, stats.neutral||0, stats.conflict||0],
+        backgroundColor: ['#00e5a0','#ff5e5e','#6b7280','#f59e0b'],
+        borderRadius: 4, borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8888a0', font: { family: 'Space Mono', size: 9 } }, grid: { display: false } },
+        y: { display: false }
+      }
+    }
+  });
+
+  // Aspect list
+  const aspects = data.aspects || [];
+  document.getElementById('aspectCount').textContent = aspects.length + ' aspects';
+  const listEl = document.getElementById('aspectList');
+  if (aspects.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px;font-family:var(--mono);font-size:11px">NO ASPECTS FOUND</div>';
+  } else {
+    listEl.innerHTML = aspects.map(a => `
+      <div class="aspect-item">
+        <div>
+          <div class="aspect-term">${a.term}</div>
+          <div class="aspect-cat">${a.category || 'other'}</div>
+        </div>
+        <div>${polarityBadge(a.polarity)}</div>
+        <div>${scoreBar(a.score || 0, a.polarity)}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">
+          ${a.confidence ? (a.confidence*100).toFixed(0)+'%' : '—'}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Key points
+  const kps = (sum.key_points || []);
+  const kpEl = document.getElementById('keyPoints');
+  if (kps.length > 0) {
+    kpEl.innerHTML = kps.map(kp => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:16px">${kp.emoji}</span>
+        <span style="font-weight:600">${kp.term}</span>
+        <span class="badge badge-${kp.polarity==='positive'?'pos':kp.polarity==='negative'?'neg':kp.polarity==='conflict'?'conf':'neu'}">
+          ${kp.polarity}
+        </span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto">
+          ${kp.score > 0 ? '+' : ''}${(kp.score||0).toFixed(3)}
+        </span>
+      </div>
+    `).join('');
+    document.getElementById('keyPointsCard').classList.remove('hidden');
+  } else {
+    document.getElementById('keyPointsCard').classList.add('hidden');
+  }
+
+  // View full link
+  if (data.review_id) {
+    document.getElementById('viewFullBtn').href = '/result/' + data.review_id;
+    document.getElementById('viewFullBtn').classList.remove('hidden');
+  }
+
+  // Scroll to results
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// Enter key in textarea
+document.getElementById('reviewText').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') runAnalysis();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}History — AspectLens{% endblock %}
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">HISTORY</div>
+    <div class="page-sub">// all analyzed reviews</div>
+  </div>
+  <div class="flex gap-3">
+    <select id="domainFilter" onchange="filterDomain(this.value)" style="width:auto;padding:8px 12px">
+      <option value="">All Domains</option>
+      {% for d in domains %}
+      <option value="{{ d }}" {{ 'selected' if domain_filter == d }}>{{ d|title }}</option>
+      {% endfor %}
+    </select>
+    <a href="/analyze" class="btn btn-primary btn-sm">+ New</a>
+  </div>
+</div>
+
+<div class="card fade-up delay-1">
+  <div class="flex-between mb-4">
+    <div class="card-title" style="margin:0">
+      {{ reviews.total }} Review{{ 's' if reviews.total != 1 }}
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">
+      Page {{ reviews.page }} of {{ reviews.pages }}
+    </div>
+  </div>
+
+  {% if reviews.items %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Review</th>
+        <th>Domain</th>
+        <th>Aspects</th>
+        <th>Sentiment</th>
+        <th>Source</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reviews.items %}
+      {% set polarities = r.aspects|map(attribute='polarity')|list %}
+      {% set pos = polarities|select('equalto','positive')|list|length %}
+      {% set neg = polarities|select('equalto','negative')|list|length %}
+      <tr>
+        <td class="text-mono text-muted" style="font-size:10px">#{{ r.id }}</td>
+        <td style="max-width:260px">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.text[:90] }}{% if r.text|length > 90 %}…{% endif %}</div>
+        </td>
+        <td><span class="text-mono text-muted" style="font-size:10px">{{ r.domain }}</span></td>
+        <td><span class="text-mono">{{ r.aspects|length }}</span></td>
+        <td>
+          {% if pos > neg %}<span class="badge badge-pos">▲ pos</span>
+          {% elif neg > pos %}<span class="badge badge-neg">▼ neg</span>
+          {% else %}<span class="badge badge-neu">◆ mix</span>{% endif %}
+        </td>
+        <td><span class="badge badge-neu" style="font-size:8px">{{ r.source }}</span></td>
+        <td class="text-mono text-muted" style="font-size:10px">{{ r.created_at.strftime('%b %d %H:%M') }}</td>
+        <td>
+          <a href="/result/{{ r.id }}" class="btn btn-ghost btn-sm">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  {% if reviews.pages > 1 %}
+  <div style="display:flex;justify-content:center;gap:8px;margin-top:20px">
+    {% if reviews.has_prev %}
+    <a href="?page={{ reviews.prev_num }}{% if domain_filter %}&domain={{ domain_filter }}{% endif %}" class="btn btn-ghost btn-sm">← Prev</a>
+    {% endif %}
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:6px 12px">
+      {{ reviews.page }} / {{ reviews.pages }}
+    </span>
+    {% if reviews.has_next %}
+    <a href="?page={{ reviews.next_num }}{% if domain_filter %}&domain={{ domain_filter }}{% endif %}" class="btn btn-ghost btn-sm">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--muted)">
+    <div style="font-size:32px;opacity:0.2;margin-bottom:12px">◷</div>
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px">NO HISTORY YET</div>
+    <div style="margin-top:12px"><a href="/analyze" class="btn btn-primary btn-sm">Start Analyzing</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterDomain(val) {
+  const url = new URL(window.location);
+  if (val) url.searchParams.set('domain', val);
+  else url.searchParams.delete('domain');
+  url.searchParams.delete('page');
+  window.location = url.toString();
+}
+</script>
+{% endblock %}

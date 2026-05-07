@@ -1,0 +1,308 @@
+{
+  "electronics": [
+    {
+      "text": "The battery life is excellent, lasts all day.",
+      "tokens": [
+        "The",
+        "battery",
+        "life",
+        "is",
+        "excellent,",
+        "lasts",
+        "all",
+        "day."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "I-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "positive",
+        "positive",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "electronics"
+    },
+    {
+      "text": "Camera takes stunning photos even in low light.",
+      "tokens": [
+        "Camera",
+        "takes",
+        "stunning",
+        "photos",
+        "even",
+        "in",
+        "low",
+        "light."
+      ],
+      "bio_labels": [
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "positive",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "electronics"
+    },
+    {
+      "text": "The screen is too dim for outdoor use.",
+      "tokens": [
+        "The",
+        "screen",
+        "is",
+        "too",
+        "dim",
+        "for",
+        "outdoor",
+        "use."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "negative",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "electronics"
+    }
+  ],
+  "restaurants": [
+    {
+      "text": "The food was delicious and portions were generous.",
+      "tokens": [
+        "The",
+        "food",
+        "was",
+        "delicious",
+        "and",
+        "portions",
+        "were",
+        "generous."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "B-ASP",
+        "I-ASP",
+        "O"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "positive",
+        "neutral",
+        "neutral",
+        "neutral",
+        "positive",
+        "positive",
+        "neutral"
+      ],
+      "domain": "restaurants"
+    },
+    {
+      "text": "Service was extremely slow on a busy night.",
+      "tokens": [
+        "Service",
+        "was",
+        "extremely",
+        "slow",
+        "on",
+        "a",
+        "busy",
+        "night."
+      ],
+      "bio_labels": [
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "negative",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "restaurants"
+    },
+    {
+      "text": "The ambiance is cozy and perfect for a date.",
+      "tokens": [
+        "The",
+        "ambiance",
+        "is",
+        "cozy",
+        "and",
+        "perfect",
+        "for",
+        "a",
+        "date."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "positive",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "restaurants"
+    }
+  ],
+  "hotels": [
+    {
+      "text": "The room was spacious and very clean.",
+      "tokens": [
+        "The",
+        "room",
+        "was",
+        "spacious",
+        "and",
+        "very",
+        "clean."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "I-ASP"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "positive",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "positive"
+      ],
+      "domain": "hotels"
+    },
+    {
+      "text": "Staff were rude and unhelpful at check-in.",
+      "tokens": [
+        "Staff",
+        "were",
+        "rude",
+        "and",
+        "unhelpful",
+        "at",
+        "check-in."
+      ],
+      "bio_labels": [
+        "B-ASP",
+        "O",
+        "O",
+        "O",
+        "O",
+        "O",
+        "B-ASP"
+      ],
+      "sentiment_labels": [
+        "negative",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "neutral",
+        "negative"
+      ],
+      "domain": "hotels"
+    },
+    {
+      "text": "Great location but the wifi was terrible.",
+      "tokens": [
+        "Great",
+        "location",
+        "but",
+        "the",
+        "wifi",
+        "was",
+        "terrible."
+      ],
+      "bio_labels": [
+        "O",
+        "B-ASP",
+        "O",
+        "O",
+        "B-ASP",
+        "O",
+        "O"
+      ],
+      "sentiment_labels": [
+        "neutral",
+        "positive",
+        "neutral",
+        "neutral",
+        "negative",
+        "neutral",
+        "neutral"
+      ],
+      "domain": "hotels"
+    }
+  ]
+}

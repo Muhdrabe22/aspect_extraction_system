@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AspectLens{% endblock %}
+
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">DASHBOARD</div>
+    <div class="page-sub">// multi-domain aspect extraction system</div>
+  </div>
+  <a href="/analyze" class="btn btn-primary">◎ New Analysis</a>
+</div>
+
+<!-- Stat tiles -->
+<div class="stats-row fade-up delay-1">
+  <div class="stat-tile" style="--accent-color: var(--accent)">
+    <div class="stat-num">{{ total_reviews }}</div>
+    <div class="stat-label">Total Reviews</div>
+  </div>
+  <div class="stat-tile" style="--accent-color: var(--accent2)">
+    <div class="stat-num">{{ total_aspects }}</div>
+    <div class="stat-label">Aspects Extracted</div>
+  </div>
+  <div class="stat-tile" style="--accent-color: var(--pos)">
+    <div class="stat-num">{{ weekly_reviews }}</div>
+    <div class="stat-label">This Week</div>
+  </div>
+  <div class="stat-tile" style="--accent-color: var(--conf)">
+    <div class="stat-num">{{ total_batches }}</div>
+    <div class="stat-label">Batch Jobs</div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="grid-2 fade-up delay-2" style="margin-bottom: 24px;">
+  <div class="card">
+    <div class="card-title">Sentiment Distribution</div>
+    <div class="chart-wrap">
+      <canvas id="sentimentChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Reviews by Domain</div>
+    <div class="chart-wrap">
+      <canvas id="domainChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Recent reviews -->
+<div class="card fade-up delay-3">
+  <div class="flex-between mb-4">
+    <div class="card-title" style="margin-bottom:0">Recent Reviews</div>
+    <a href="/history" class="btn btn-ghost btn-sm">View All →</a>
+  </div>
+
+  {% if recent_reviews %}
+  <table>
+    <thead>
+      <tr>
+        <th>Review</th>
+        <th>Domain</th>
+        <th>Aspects</th>
+        <th>Sentiment</th>
+        <th>Time</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in recent_reviews %}
+      <tr>
+        <td style="max-width:280px">
+          <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">
+            {{ r.text[:80] }}{% if r.text|length > 80 %}…{% endif %}
+          </span>
+        </td>
+        <td><span class="text-mono text-muted">{{ r.domain }}</span></td>
+        <td><span class="text-mono">{{ r.aspects|length }}</span></td>
+        <td>
+          {% set polarities = r.aspects|map(attribute='polarity')|list %}
+          {% set pos = polarities|select('equalto','positive')|list|length %}
+          {% set neg = polarities|select('equalto','negative')|list|length %}
+          {% if pos > neg %}<span class="badge badge-pos">▲ positive</span>
+          {% elif neg > pos %}<span class="badge badge-neg">▼ negative</span>
+          {% else %}<span class="badge badge-neu">◆ mixed</span>{% endif %}
+        </td>
+        <td><span class="text-mono text-muted" style="font-size:10px">{{ r.created_at.strftime('%b %d %H:%M') }}</span></td>
+        <td><a href="/result/{{ r.id }}" class="btn btn-ghost btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--muted)">
+    <div style="font-size:32px;margin-bottom:12px;opacity:0.3">◎</div>
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px">NO REVIEWS YET</div>
+    <div style="margin-top:12px">
+      <a href="/analyze" class="btn btn-primary btn-sm">Run First Analysis</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CHART_DEFAULTS = {
+  plugins: { legend: { display: false } },
+  responsive: true,
+  maintainAspectRatio: false,
+};
+
+// Sentiment donut
+const sentData = {{ sentiment_dist | tojson }};
+const sentLabels = Object.keys(sentData);
+const sentColors = { positive: '#00e5a0', negative: '#ff5e5e', neutral: '#6b7280', conflict: '#f59e0b' };
+
+new Chart(document.getElementById('sentimentChart'), {
+  type: 'doughnut',
+  data: {
+    labels: sentLabels,
+    datasets: [{
+      data: Object.values(sentData),
+      backgroundColor: sentLabels.map(l => sentColors[l] || '#6b7280'),
+      borderWidth: 0,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    ...CHART_DEFAULTS,
+    cutout: '65%',
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: { color: '#8888a0', font: { family: 'Space Mono', size: 10 }, padding: 12, boxWidth: 10 }
+      }
+    }
+  }
+});
+
+// Domain bar
+const domData = {{ domain_dist | tojson }};
+new Chart(document.getElementById('domainChart'), {
+  type: 'bar',
+  data: {
+    labels: Object.keys(domData),
+    datasets: [{
+      data: Object.values(domData),
+      backgroundColor: ['#00e5a0', '#7b61ff', '#f59e0b'],
+      borderRadius: 4,
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    ...CHART_DEFAULTS,
+    scales: {
+      x: { ticks: { color: '#8888a0', font: { family: 'Space Mono', size: 10 } }, grid: { display: false } },
+      y: { ticks: { color: '#8888a0', font: { family: 'Space Mono', size: 10 } }, grid: { color: '#2a2a3a' } }
+    }
+  }
+});
+</script>
+{% endblock %}

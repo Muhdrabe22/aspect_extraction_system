@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Result #{{ review.id }} — AspectLens{% endblock %}
+{% block content %}
+<div class="page-header fade-up">
+  <div>
+    <div class="page-title">RESULT <span style="color:var(--accent)">#{{ review.id }}</span></div>
+    <div class="page-sub">// {{ review.domain }} · {{ review.created_at.strftime('%B %d, %Y %H:%M') }}</div>
+  </div>
+  <a href="/analyze" class="btn btn-ghost">← New Analysis</a>
+</div>
+
+<!-- Review text -->
+<div class="summary-box fade-up">
+  <div class="summary-label">◈ Review Text</div>
+  <div class="summary-text" style="font-style:italic;opacity:0.85">{{ review.text }}</div>
+</div>
+
+{% set aspects = review.aspects %}
+{% set pos = aspects|selectattr('polarity','equalto','positive')|list %}
+{% set neg = aspects|selectattr('polarity','equalto','negative')|list %}
+{% set neu = aspects|selectattr('polarity','equalto','neutral')|list %}
+
+<!-- Stats row -->
+<div class="stats-row fade-up delay-1">
+  <div class="stat-tile" style="--accent-color:var(--accent2)">
+    <div class="stat-num">{{ aspects|length }}</div>
+    <div class="stat-label">Total Aspects</div>
+  </div>
+  <div class="stat-tile" style="--accent-color:var(--pos)">
+    <div class="stat-num">{{ pos|length }}</div>
+    <div class="stat-label">Positive</div>
+  </div>
+  <div class="stat-tile" style="--accent-color:var(--neg)">
+    <div class="stat-num">{{ neg|length }}</div>
+    <div class="stat-label">Negative</div>
+  </div>
+  <div class="stat-tile" style="--accent-color:var(--neu)">
+    <div class="stat-num">{{ neu|length }}</div>
+    <div class="stat-label">Neutral</div>
+  </div>
+</div>
+
+<div class="grid-2 fade-up delay-2">
+  <!-- Aspect list -->
+  <div class="card">
+    <div class="card-title">Extracted Aspects</div>
+    {% if aspects %}
+    {% for asp in aspects|sort(attribute='score', reverse=True) %}
+    <div class="aspect-item">
+      <div>
+        <div class="aspect-term">{{ asp.term }}</div>
+        <div class="aspect-cat">{{ asp.category }}</div>
+      </div>
+      <div>
+        <span class="badge badge-{{ 'pos' if asp.polarity=='positive' else 'neg' if asp.polarity=='negative' else 'conf' if asp.polarity=='conflict' else 'neu' }}">
+          {{ '▲' if asp.polarity=='positive' else '▼' if asp.polarity=='negative' else '⚡' if asp.polarity=='conflict' else '◆' }}
+          {{ asp.polarity }}
+        </span>
+      </div>
+      <div>
+        <div class="score-bar-wrap">
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width:{{ (asp.score|abs * 100)|round }}%;background:{{ 'var(--pos)' if asp.polarity=='positive' else 'var(--neg)' if asp.polarity=='negative' else 'var(--conf)' if asp.polarity=='conflict' else 'var(--neu)' }}"></div>
+          </div>
+          <span class="score-val">{{ '+' if asp.score > 0 else '' }}{{ asp.score|round(2) }}</span>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">
+        {{ (asp.confidence * 100)|round(0)|int }}%
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align:center;padding:32px;color:var(--muted);font-family:var(--mono);font-size:11px">NO ASPECTS FOUND</div>
+    {% endif %}
+  </div>
+
+  <!-- Charts -->
+  <div>
+    <div class="card mb-4">
+      <div class="card-title">Sentiment Breakdown</div>
+      <div class="chart-wrap"><canvas id="sentChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Aspect Scores</div>
+      <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 flex gap-3 fade-up delay-3">
+  <button class="btn btn-danger btn-sm" onclick="deleteReview({{ review.id }})">✕ Delete</button>
+  <a href="/history" class="btn btn-ghost btn-sm">← History</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const aspectData = [{% for a in review.aspects %}{"term":{{ a.term|tojson }},"polarity":{{ a.polarity|tojson }},"score":{{ a.score }},"confidence":{{ a.confidence }},"category":{{ a.category|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}];
+
+// Sentiment pie
+new Chart(document.getElementById('sentChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Positive','Negative','Neutral','Conflict'],
+    datasets: [{
+      data: [
+        aspectData.filter(a=>a.polarity==='positive').length,
+        aspectData.filter(a=>a.polarity==='negative').length,
+        aspectData.filter(a=>a.polarity==='neutral').length,
+        aspectData.filter(a=>a.polarity==='conflict').length,
+      ],
+      backgroundColor: ['#00e5a0','#ff5e5e','#6b7280','#f59e0b'],
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '60%',
+    plugins: {
+      legend: {
+        display: true, position: 'right',
+        labels: { color: '#8888a0', font: { family: 'Space Mono', size: 9 }, padding: 10, boxWidth: 8 }
+      }
+    }
+  }
+});
+
+// Score bar chart
+const sorted = [...aspectData].sort((a,b) => b.score - a.score);
+new Chart(document.getElementById('scoreChart'), {
+  type: 'bar',
+  data: {
+    labels: sorted.map(a => a.term),
+    datasets: [{
+      data: sorted.map(a => a.score),
+      backgroundColor: sorted.map(a =>
+        a.polarity==='positive'?'#00e5a0': a.polarity==='negative'?'#ff5e5e':'#6b7280'),
+      borderRadius: 4, borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color:'#8888a0', font:{family:'Space Mono',size:9} }, grid:{display:false} },
+      y: {
+        ticks: { color:'#8888a0', font:{family:'Space Mono',size:9} },
+        grid: { color:'#2a2a3a' }
+      }
+    }
+  }
+});
+
+async function deleteReview(id) {
+  if (!confirm('Delete this review?')) return;
+  await fetch('/api/review/'+id, {method:'DELETE'});
+  window.location = '/history';
+}
+</script>
+{% endblock %}
